@@ -57,7 +57,7 @@ async def menu_tomorrow_command(interaction: discord.Interaction):
 @tasks.loop(hours=24)
 async def daily_menu():
     now = datetime.now(tz)
-    future = now.replace(hour=1, minute=30, second=59, microsecond=0)
+    future = now.replace(hour=1, minute=36, second=00, microsecond=0)
     if now > future:
         future = future + timedelta(days=1)
     await asyncio.sleep((future - now).seconds)
