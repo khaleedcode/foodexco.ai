@@ -1,7 +1,8 @@
 import discord
-from discord.ext import commands, tasks
+from discord.ext import tasks
+from discord import app_commands
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import os
 
@@ -10,52 +11,57 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 CSV_FILE = "menu.csv"
 
 intents = discord.Intents.default()
-intents.messages = True
-intents.message_content = True
+client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
 
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-def get_today_meals():
-    today_str = datetime.now().strftime('%Y-%m-%d')
+def get_meals_for(date_str):
     df = pd.read_csv(CSV_FILE)
-    today_df = df[df['Date'] == today_str]
+    date_df = df[df['Date'] == date_str]
 
-    if today_df.empty:
-        return f"No menu found for {today_str}."
+    if date_df.empty:
+        return f"No menu found for {date_str}."
 
     meals = []
     for meal_type in ['Breakfast', 'Lunch', 'Dinner']:
-        meal_texts = today_df[today_df['Meal'].str.lower() == meal_type.lower()]['Menu'].tolist()
+        meal_texts = date_df[date_df['Meal'].str.lower() == meal_type.lower()]['Menu'].tolist()
         if meal_texts:
-            meals.append(f"**{meal_type}:**\\n{meal_texts[0]}")
+            meals.append(f"**{meal_type}:**\n{meal_texts[0]}")
         else:
             meals.append(f"**{meal_type}:** No menu available.")
 
-    return f"🍽️ **Dining Hall Menu for {today_str}** 🍽️\\n\\n" + "\\n\\n".join(meals)
+    return f"🍽️ **Dining Hall Menu for {date_str}** 🍽️\n\n" + "\n\n".join(meals)
 
-@bot.event
+@client.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
+    print(f'Logged in as {client.user}')
+    await tree.sync()
     daily_menu.start()
+
+@tree.command(name="ping", description="Check if the bot is alive")
+async def ping_command(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong!", ephemeral=True)
+
+@tree.command(name="menu", description="Show today's dining hall menu")
+async def menu_command(interaction: discord.Interaction):
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    await interaction.response.send_message(get_meals_for(today_str))
+
+@tree.command(name="menu_tomorrow", description="Show tomorrow's dining hall menu")
+async def menu_tomorrow_command(interaction: discord.Interaction):
+    tomorrow_str = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    await interaction.response.send_message(get_meals_for(tomorrow_str))
 
 @tasks.loop(hours=24)
 async def daily_menu():
     now = datetime.now()
-    future = now.replace(hour=1, minute=15, second=0, microsecond=0)
+    future = now.replace(hour=0, minute=55, second=0, microsecond=0)
     if now > future:
         future = future.replace(day=now.day + 1)
     await asyncio.sleep((future - now).seconds)
 
-    channel = bot.get_channel(CHANNEL_ID)
+    channel = client.get_channel(CHANNEL_ID)
     if channel:
-        await channel.send(get_today_meals())
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        await channel.send(get_meals_for(today_str))
 
-@bot.command()
-async def testmenu(ctx):
-    await ctx.send(get_today_meals())
-
-@bot.command()
-async def ping(ctx):
-    await ctx.send("Pong!")
-
-bot.run(TOKEN)
+client.run(TOKEN)
