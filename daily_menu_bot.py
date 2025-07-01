@@ -40,7 +40,7 @@ async def on_ready():
 @tasks.loop(hours=24)
 async def daily_menu():
     now = datetime.now()
-    future = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    future = now.replace(hour=0, minute=59, second=0, microsecond=0)
     if now > future:
         future = future.replace(day=now.day + 1)
     await asyncio.sleep((future - now).seconds)
@@ -49,6 +49,11 @@ async def daily_menu():
     if channel:
         menu_message = get_today_meals()
         await channel.send(menu_message)
+
+@bot.command(name='testmenu')
+async def test_menu(ctx):
+    menu_message = get_today_meals()
+    await ctx.send(menu_message)
 
 keep_alive()
 bot.run(TOKEN)
