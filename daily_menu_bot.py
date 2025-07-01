@@ -40,7 +40,7 @@ async def on_ready():
 @tasks.loop(hours=24)
 async def daily_menu():
     now = datetime.now()
-    future = now.replace(hour=0, minute=59, second=0, microsecond=0)
+    future = now.replace(hour=1, minute=5, second=0, microsecond=0)
     if now > future:
         future = future.replace(day=now.day + 1)
     await asyncio.sleep((future - now).seconds)
